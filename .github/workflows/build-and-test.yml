@@ -178,19 +178,9 @@ jobs:
         path: build/libs/
         retention-days: 90
 
-    - name: Store the name of each built file
-      id: expose-jars
-      run: |
-        shopt -s nullglob
-        JAR_JSON=$(jq -n -c '$ARGS.positional' --args build/libs/*.jar)
-        echo "matrix=$JAR_JSON" >> "$GITHUB_OUTPUT"
-
-  run-individual-uploads:
-    needs: build-and-test
-    strategy:
-      fail-fast: false
-      matrix:
-        jar: ${{ fromJson(needs.build-and-test.outputs.jar_matrix) }}
-    uses: ./.github/workflows/upload-individual-jar.yml
-    with:
-      jar_path: ${{ matrix.jar }}
+    - name: Attach compilation artifacts individually
+      uses: actions/upload-artifact@v7
+      with:
+        path: build/libs/
+        archive: false
+        retention-days: 90
