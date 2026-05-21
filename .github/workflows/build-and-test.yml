@@ -29,6 +29,10 @@ concurrency:
 jobs:
   build-and-test:
     runs-on: ubuntu-24.04
+
+    outputs:
+      jar_matrix: ${{ steps.expose-jars.outputs.matrix }}
+
     steps:
     - name: Install Ubuntu dependencies
       run: |
@@ -83,7 +87,7 @@ jobs:
 
     - name: Compile the mod
       run: ./gradlew --build-cache --info --stacktrace assemble
-      
+
     - name: Run post-build checks
       id: build_mod
       run: xvfb-run --server-args="-screen 0 1366x768x24" ./gradlew --build-cache --info --stacktrace build
@@ -167,33 +171,26 @@ jobs:
         GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         PR_NUMBER: ${{ github.event.number }}
 
-  prepare-uploads:
-    runs-on: ubuntu-latest
-    outputs:
-      jar_matrix: ${{ steps.expose-jars.outputs.matrix }}
-    steps:
-      # Upload all artifacts as a zip, so existing references to them via nightly.link do not break.
-      - name: Attach compilation artifacts
-        uses: actions/upload-artifact@v7
-        with:
-          name: ${{ github.repository_id }}-build-libs
-          path: build/libs/
-          retention-days: 90
-          
-      # Collect jars, we'll iterate through this for the individual uploads step.
-      - name: Scan build folder for dynamic JARs
-        id: expose-jars
-        run: |
-          shopt -s nullglob
-          JAR_JSON=$(jq -n -c '$ARGS.positional' --args build/libs/*.jar)
-          echo "matrix=$JAR_JSON" >> "$GITHUB_OUTPUT"
-          
+    - name: Upload Legacy ZIP Artifact
+      uses: actions/upload-artifact@v7
+      with:
+        name: ${{ github.repository_id }}-build-libs
+        path: build/libs/
+        retention-days: 90
+
+    - name: Scan build folder for dynamic JARs
+      id: expose-jars
+      run: |
+        shopt -s nullglob
+        JAR_JSON=$(jq -n -c '$ARGS.positional' --args build/libs/*.jar)
+        echo "matrix=$JAR_JSON" >> "$GITHUB_OUTPUT"
+
   run-unzipped-uploads:
-    needs: prepare-uploads
+    needs: build-and-test
     strategy:
       fail-fast: false
       matrix:
-        jar: ${{ fromJson(needs.prepare-uploads.outputs.jar_matrix) }}
-    uses: ./.github/workflows/upload-jars.yml
+        jar: ${{ fromJson(needs.build-and-test.outputs.jar_matrix) }}
+    uses: ./.github/workflows/upload-unzipped-jar.yml
     with:
       jar_path: ${{ matrix.jar }}

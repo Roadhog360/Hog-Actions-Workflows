@@ -1,4 +1,4 @@
-name: Upload Single Jar Unzipped
+name: Upload Unzipped Jar
 
 on:
   workflow_call:
@@ -9,13 +9,12 @@ on:
 
 jobs:
   upload:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
-      # We download the workspace artifacts from the previous job
-      - name: Download compiled libs
+      - name: Retrieve Compiled Jars
         uses: actions/download-artifact@v4
         with:
-          name: compiled-libs-temp
+          name: ${{ github.repository_id }}-build-libs
           path: build/libs
 
       - name: Upload Unzipped Jar
